@@ -83,9 +83,9 @@ def main():
             'Account_Number',
             'Sub_Account_Number',
             'Object_Code',
-            'Sub_Object_Code',
-            'Project_Code',
-            'Period_Number'
+            'Period_Number',
+            'Fiscal_Year',
+            'Category_Description'
         ]
 
         selected_filters = {}
@@ -113,6 +113,7 @@ def main():
             except KeyError:
                 st.error(f"Column '{col}' not found in dataset")
                 st.stop()
+    print(selected_filters)
 
     # Apply filters
     filtered_df = df.copy()
@@ -122,7 +123,9 @@ def main():
 
     # Main Content
     col1, col2 = st.columns([1, 3])
+    print(filtered_df)
 
+    # This is the area where we'll begin the confidence and weighted numbers
     with col1:
         st.header("Data Summary")
         if not filtered_df.empty:
@@ -137,6 +140,46 @@ def main():
                 )
         else:
             st.warning("No data matches selected filters")
+    print(filtered_df.columns)
+    # CMA = filtered_df["Current_Month_Actuals"]
+    #     # FY = filtered_df["Fiscal_Year"]
+    #     # FY_2023 = FY == 2023
+    #     # CMA_2023 = CMA[FY_2023]
+    #     # CMA_2023.sum()
+    #     #
+    #     # # filtering for period 1
+    #     # PER = filtered_df["Period_Number"]
+    #     # PER_01 = PER == "01"
+    #     # CMA_01 = CMA[PER_01]
+    #     # PER_01.sum()
+
+    # {"01": "JUL",
+    #  "02": "AUG",
+    #  "03": "SEP",
+    #  "04": "OCT",
+    #  "05": "NOV",
+    #  "06": "DEC",
+    #  "07": "JAN",
+    #  "08": "FEB",
+    #  "09": "MAR",
+    #  "10": "APR",
+    #  "11": "MAY",
+    #  "12": "JUN"
+    # }
+    periods_sum = (
+    filtered_df
+        .groupby(["Fiscal_Year", "Period_Number"], as_index = False)
+        .agg({"Current_Month_Actuals": "sum"})
+    )
+
+    CMA_pivot = periods_sum.pivot(index = 'Period_Number',
+                      columns = 'Fiscal_Year',
+                      values = 'Current_Month_Actuals')
+
+    CMA_pivot_styled = CMA_pivot.style.format(lambda x: f"${format(x, ',.2f'):>15}")
+
+    st.write("Period Actuals")
+    st.dataframe(CMA_pivot_styled)
 
     with col2:
         st.header("Trend Analysis")
