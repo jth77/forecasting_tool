@@ -125,22 +125,6 @@ def main():
     col1, col2 = st.columns([1, 3])
     print(filtered_df)
 
-    # This is the area where we'll begin the confidence and weighted numbers
-    with col1:
-        st.header("Data Summary")
-        if not filtered_df.empty:
-            st.metric("Total Records", len(filtered_df))
-            st.metric("Unique Fiscal Years", filtered_df["Fiscal_Year"].nunique())
-
-            with st.expander("Sample Data"):
-                st.dataframe(
-                    filtered_df.head(10),
-                    use_container_width=True,
-                    hide_index=True
-                )
-        else:
-            st.warning("No data matches selected filters")
-    print(filtered_df.columns)
     # CMA = filtered_df["Current_Month_Actuals"]
     #     # FY = filtered_df["Fiscal_Year"]
     #     # FY_2023 = FY == 2023
@@ -180,46 +164,6 @@ def main():
 
     st.write("Period Actuals")
     st.dataframe(CMA_pivot_styled)
-
-    with col2:
-        st.header("Trend Analysis")
-
-        if not filtered_df.empty:
-            try:
-                agg_df = filtered_df.groupby("Fiscal_Year", as_index=False).agg({
-                    "Current_Month_Actuals": "sum"
-                })
-
-                # Ensure Fiscal Year is treated as categorical data to fix x-axis issue
-                agg_df["Fiscal_Year"] = agg_df["Fiscal_Year"].astype(str)
-
-                fig = px.line(
-                    agg_df,
-                    x="Fiscal_Year",
-                    y="Current_Month_Actuals",
-                    title="Actual Expenses Over Time",
-                    markers=True,
-                    category_orders={"Fiscal_Year": sorted(agg_df["Fiscal_Year"].unique())}
-                    # Sort fiscal years properly
-                )
-
-                # Explicitly set x-axis type to "category"
-                fig.update_layout(
-                    xaxis_type="category",
-                    hovermode="x unified",
-                    yaxis_tickprefix="$",
-                    height=600,
-                    xaxis_title="Fiscal Year",
-                    yaxis_title="Current Month Actuals"
-                )
-
-                st.plotly_chart(fig, use_container_width=True)
-
-            except KeyError as e:
-                st.error(f"Missing required column: {str(e)}")
-        else:
-            st.info("Select filters to view trends")
-
 
 if __name__ == "__main__":
     main()
