@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from pathlib import Path
+from neuralprophet import NeuralProphet
 
 # Configuration
 DATA_PATH = Path(
@@ -57,6 +58,21 @@ def load_data():
         st.error(f"Error loading data: {str(e)}")
         st.stop()
 
+@st.cache_data
+def run_fit_predict(input_df):
+    m = NeuralProphet()
+
+    metrics = m.fit(input_df)
+    #
+
+    # Create a new dataframe reaching 365 into the future for our forecast, n_historic_predictions also shows historic data
+    df_future = m.make_future_dataframe(input_df, n_historic_predictions=True, periods=365)
+    # n could be a user choice to choose how far back the history should go
+
+    forecast = m.predict(input_df)
+    print(forecast)
+
+    return forecast
 
 def main():
     # App Configuration
@@ -113,7 +129,7 @@ def main():
             except KeyError:
                 st.error(f"Column '{col}' not found in dataset")
                 st.stop()
-    print(selected_filters)
+    # print(selected_filters)
 
     # Apply filters
     filtered_df = df.copy()
@@ -123,7 +139,7 @@ def main():
 
     # Main Content
     col1, col2 = st.columns([1, 3])
-    print(filtered_df)
+    # print(filtered_df)
 
     # CMA = filtered_df["Current_Month_Actuals"]
     #     # FY = filtered_df["Fiscal_Year"]
@@ -137,34 +153,48 @@ def main():
     #     # CMA_01 = CMA[PER_01]
     #     # PER_01.sum()
 
-    # {"01": "JUL",
-    #  "02": "AUG",
-    #  "03": "SEP",
-    #  "04": "OCT",
-    #  "05": "NOV",
-    #  "06": "DEC",
-    #  "07": "JAN",
-    #  "08": "FEB",
-    #  "09": "MAR",
-    #  "10": "APR",
-    #  "11": "MAY",
-    #  "12": "JUN"
-    # }
     periods_sum = (
     filtered_df
         .groupby(["Fiscal_Year", "Period_Number"], as_index = False)
         .agg({"Current_Month_Actuals": "sum"})
     )
 
-    CMA_pivot = periods_sum.pivot(index = 'Period_Number',
+    CMA_pivot = periods_sum.pivot(
+                      index = 'Period_Number',
                       columns = 'Fiscal_Year',
                       values = 'Current_Month_Actuals')
 
-    CMA_pivot_styled = CMA_pivot.style.format(lambda x: f"${format(x, ',.2f'):>15}")
+    CMA_pivot_styled = CMA_pivot.style.format(lambda x: f"{x:,.0f}")
 
     st.write("Period Actuals")
-    st.dataframe(CMA_pivot_styled)
+    st.dataframe(CMA_pivot_styled, use_container_width=False)
+
+    # df = pd.read_csv('toiletpaper_daily_sales.csv')
+
+    filtered_df = filtered_df.drop(filtered_df[filtered_df.Period_Number == "BB"].index)
+    filtered_df = filtered_df.drop(filtered_df[filtered_df.Period_Number == "CB"].index)
+    # print(filtered_df.dtypes)
+    #     filtered_df[filtered_df["Period_Number"]=="13"] = 12
+    filtered_df.Period_Number[filtered_df["Period_Number"] == "13"] = 12
+
+    filtered_df['date_string'] = filtered_df['Fiscal_Year'].astype(str) + '-' + filtered_df['Period_Number'].astype(
+        str) + '-01'
+    # print(filtered_df['date_string'])
+    # print(filtered_df.where(filtered_df["date_string"] == "12-12-01"))
+    filtered_df['ds'] = pd.to_datetime(filtered_df['date_string'])
+    print("made it to here")
+    # make new dataframe (select rows with year 2025)
+    # then make use of groupby techniques (higher up), so sum
+
+    # #print(filtered_df)
+    sum_actuals = filtered_df.groupby('ds', as_index=False).agg({"Current_Month_Actuals": 'sum'})
+    # # st.table(data=sum_actuals.iloc[:200])
+    sum_actuals['y'] = sum_actuals.Current_Month_Actuals
+    # # print(sum_actuals.Current_Month_Actuals)
+    sum_actuals = sum_actuals.drop(columns='Current_Month_Actuals')
+    predict_df = run_fit_predict(sum_actuals)
+    print(predict_df)
 
 if __name__ == "__main__":
     main()
-    
+
