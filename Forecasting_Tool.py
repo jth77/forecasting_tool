@@ -6,7 +6,7 @@ from neuralprophet import NeuralProphet
 
 # Configuration
 DATA_PATH = Path(
-    r"C:\Users\jtherman.BLUECAT\OneDrive - University of Arizona\Projects\Forecasting_Tool\Account Detail_ Transactions.csv")
+    r"C:\Users\jtherman.BLUECAT\OneDrive - University of Arizona\Projects\Forecasting_Tool\Git\proxydataset.csv")
 LOGO_PATH = Path(r"C:\Users\jtherman.BLUECAT\OneDrive - University of Arizona\Projects\Forecasting_Tool\FSSLogo.png")
 
 
@@ -136,6 +136,7 @@ def main():
     for col, values in selected_filters.items():
         if values:
             filtered_df = filtered_df[filtered_df[col].isin(values)]
+    filtered_df.to_csv("proxydataset.csv",index=False)
 
     # Main Content
     col1, col2 = st.columns([1, 3])
@@ -186,14 +187,14 @@ def main():
     # make new dataframe (select rows with year 2025)
     # then make use of groupby techniques (higher up), so sum
 
-    # #print(filtered_df)
-    sum_actuals = filtered_df.groupby('ds', as_index=False).agg({"Current_Month_Actuals": 'sum'})
-    # # st.table(data=sum_actuals.iloc[:200])
-    sum_actuals['y'] = sum_actuals.Current_Month_Actuals
-    # # print(sum_actuals.Current_Month_Actuals)
-    sum_actuals = sum_actuals.drop(columns='Current_Month_Actuals')
-    predict_df = run_fit_predict(sum_actuals)
-    print(predict_df)
+    # # #print(filtered_df)
+    # sum_actuals = filtered_df.groupby('ds', as_index=False).agg({"Current_Month_Actuals": 'sum'})
+    # # # st.table(data=sum_actuals.iloc[:200])
+    # sum_actuals['y'] = sum_actuals.Current_Month_Actuals
+    # # # print(sum_actuals.Current_Month_Actuals)
+    # sum_actuals = sum_actuals.drop(columns='Current_Month_Actuals')
+    # predict_df = run_fit_predict(sum_actuals)
+    # print(predict_df)
 
 if __name__ == "__main__":
     main()
