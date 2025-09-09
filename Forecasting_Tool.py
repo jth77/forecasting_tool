@@ -6,8 +6,8 @@ from neuralprophet import NeuralProphet
 
 # Configuration
 DATA_PATH = Path(
-    r"C:\Users\jtherman.BLUECAT\OneDrive - University of Arizona\Projects\Forecasting_Tool\Git\proxydataset.csv")
-LOGO_PATH = Path(r"C:\Users\jtherman.BLUECAT\OneDrive - University of Arizona\Projects\Forecasting_Tool\FSSLogo.png")
+    r"proxydataset.csv")
+LOGO_PATH = Path(r"FSSLogo.png")
 
 
 def handle_duplicate_columns(df):
@@ -66,13 +66,16 @@ def run_fit_predict(input_df):
     #
 
     # Create a new dataframe reaching 365 into the future for our forecast, n_historic_predictions also shows historic data
-    df_future = m.make_future_dataframe(input_df, n_historic_predictions=True, periods=365)
+    df_future = m.make_future_dataframe(input_df, n_historic_predictions=True, periods=36)
     # n could be a user choice to choose how far back the history should go
 
-    forecast = m.predict(input_df)
+    forecast = m.predict(df_future)
     print(forecast)
+    # my_plot = m.plot(forecast)
+    # print(my_plot)
+    # st.pyplot(my_plot)
+    # return forecast
 
-    return forecast
 
 def main():
     # App Configuration
@@ -187,14 +190,14 @@ def main():
     # make new dataframe (select rows with year 2025)
     # then make use of groupby techniques (higher up), so sum
 
-    # # #print(filtered_df)
-    # sum_actuals = filtered_df.groupby('ds', as_index=False).agg({"Current_Month_Actuals": 'sum'})
-    # # # st.table(data=sum_actuals.iloc[:200])
-    # sum_actuals['y'] = sum_actuals.Current_Month_Actuals
-    # # # print(sum_actuals.Current_Month_Actuals)
-    # sum_actuals = sum_actuals.drop(columns='Current_Month_Actuals')
-    # predict_df = run_fit_predict(sum_actuals)
-    # print(predict_df)
+    # #print(filtered_df)
+    sum_actuals = filtered_df.groupby('ds', as_index=False).agg({"Current_Month_Actuals": 'sum'})
+    # # st.table(data=sum_actuals.iloc[:200])
+    sum_actuals['y'] = sum_actuals.Current_Month_Actuals
+    # # print(sum_actuals.Current_Month_Actuals)
+    sum_actuals = sum_actuals.drop(columns='Current_Month_Actuals')
+    predict_df = run_fit_predict(sum_actuals)
+
 
 if __name__ == "__main__":
     main()
