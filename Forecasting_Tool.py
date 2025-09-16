@@ -71,11 +71,11 @@ def run_fit_predict(input_df):
 
     forecast = m.predict(df_future)
     print(forecast)
-    # my_plot = m.plot(forecast)
+    my_plot = m.plot(forecast)
     # print(my_plot)
     # st.pyplot(my_plot)
-    # return forecast
-
+    st.plotly_chart(my_plot)
+    return forecast
 
 def main():
     # App Configuration
@@ -198,6 +198,20 @@ def main():
     sum_actuals = sum_actuals.drop(columns='Current_Month_Actuals')
     predict_df = run_fit_predict(sum_actuals)
 
+    # Extract the year and month into a new column
+    predict_df['year'] = predict_df['ds'].dt.year
+    predict_df['month'] = predict_df['ds'].dt.month
+    print(predict_df)
+
+    # CMA_pivot = periods_sum.pivot(
+    #                   index = 'Period_Number',
+    #                   columns = 'Fiscal_Year',
+    #                   values = 'Current_Month_Actuals')
+    #
+    # CMA_pivot_styled = CMA_pivot.style.format(lambda x: f"{x:,.0f}")
+    #
+    # st.write("Period Actuals")
+    # st.dataframe(CMA_pivot_styled, use_container_width=False)
 
 if __name__ == "__main__":
     main()
