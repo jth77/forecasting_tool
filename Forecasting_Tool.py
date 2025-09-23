@@ -202,16 +202,30 @@ def main():
     predict_df['year'] = predict_df['ds'].dt.year
     predict_df['month'] = predict_df['ds'].dt.month
     print(predict_df)
+    predict_df = predict_df[predict_df.year >= 2025]
+    predict_pivot = predict_df.pivot(
+                      index = 'month',
+                      columns = 'year',
+                      values = 'yhat1')
+    predict_pivot_styled = predict_pivot.style.format("{:,.0f}")
 
-    # CMA_pivot = periods_sum.pivot(
-    #                   index = 'Period_Number',
-    #                   columns = 'Fiscal_Year',
-    #                   values = 'Current_Month_Actuals')
-    #
+    years_sum = (
+    predict_df
+        .groupby(['year'], as_index = False)
+        .agg({'yhat1': 'sum'})
+        .pivot_table(
+            index = None,
+            columns = 'year',
+            values = 'yhat1')
+    )
+    years_sum.index = ["Totals"]
+
+    years_sum_styled = years_sum.style.format("{:,.0f}")
     # CMA_pivot_styled = CMA_pivot.style.format(lambda x: f"{x:,.0f}")
     #
-    # st.write("Period Actuals")
-    # st.dataframe(CMA_pivot_styled, use_container_width=False)
+    st.write("Period Actuals")
+    st.dataframe(predict_pivot_styled, use_container_width=False)
+    st.dataframe(years_sum_styled, use_container_width=False)
 
 if __name__ == "__main__":
     main()
