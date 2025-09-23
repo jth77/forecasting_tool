@@ -218,6 +218,7 @@ def main():
             columns = 'year',
             values = 'yhat1')
     )
+
     years_sum.index = ["Totals"]
 
     years_sum_styled = years_sum.style.format("{:,.0f}")
