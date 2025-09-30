@@ -35,7 +35,7 @@ def handle_duplicate_columns(df):
 
 
 @st.cache_data
-def load_data():
+def load_data(df):
     """Load and preprocess data with error handling"""
     try:
         # if not DATA_PATH.exists():
@@ -43,23 +43,19 @@ def load_data():
 
         # df = pd.read_csv(DATA_PATH, encoding='utf-8')
 
-        upload_res = st.file_uploader("Fiscal CSV Upload")
-        if upload_res is not None:
-            df = pd.read.csv(upload_res)
-            st.write(df)
 
-            df = handle_duplicate_columns(df)
+        df = handle_duplicate_columns(df)
 
-            required_columns = {
-                'Organization_Code', 'Account_Number',
-                'Fiscal_Year', 'Current_Month_Actuals'
-            }
-            missing = required_columns - set(df.columns)
-            if missing:
-                st.error(f"Missing required columns: {', '.join(missing)}")
-                st.stop()
+        required_columns = {
+            'Organization_Code', 'Account_Number',
+            'Fiscal_Year', 'Current_Month_Actuals'
+        }
+        missing = required_columns - set(df.columns)
+        if missing:
+            st.error(f"Missing required columns: {', '.join(missing)}")
+            st.stop()
 
-            return df
+        return df
     except Exception as e:
         st.error(f"Error loading data: {str(e)}")
         st.stop()
@@ -87,154 +83,159 @@ def main():
     # App Configuration
     st.set_page_config(page_title="Financial Forecasting Tool", layout="wide")
 
-    # Load data
-    df = load_data()
+    upload_res = st.file_uploader("Fiscal CSV Upload")
+    if upload_res is not None:
+        df = pd.read_csv(upload_res)
+        # st.write(df)
 
-    # Sidebar with Logo and Filters
-    with st.sidebar:
-        try:
-            if LOGO_PATH.exists():
-                st.image(str(LOGO_PATH), use_container_width=True)
-            else:
-                st.warning(f"Logo not found at: {LOGO_PATH}")
-        except Exception as e:
-            st.error(f"Logo loading error: {str(e)}")
+        # Load data
+        df = load_data(df)
 
-        st.header("Data Filters")
-
-        # Dynamic filter creation
-        filter_columns = [
-            'Organization_Code',
-            'Account_Number',
-            'Sub_Account_Number',
-            'Object_Code',
-            'Period_Number',
-            'Fiscal_Year',
-            'Category_Description'
-        ]
-
-        selected_filters = {}
-        filter_types = ["Contains", "Starts with", "Ends with"]
-
-        for col in filter_columns:
+        # Sidebar with Logo and Filters
+        with st.sidebar:
             try:
-                options = df[col].dropna().unique()
+                if LOGO_PATH.exists():
+                    st.image(str(LOGO_PATH), use_container_width=True)
+                else:
+                    st.warning(f"Logo not found at: {LOGO_PATH}")
+            except Exception as e:
+                st.error(f"Logo loading error: {str(e)}")
 
-                # Format Object Code columns to 4-digit strings
-                if col in ["Object_Code"]:
-                    options = [str(int(x)).zfill(4) if pd.notnull(x) and str(x).isdigit() else str(x) for x in options]
+            st.header("Data Filters")
 
-                # Attempt to sort numerically if possible; fall back to string sort
+            # Dynamic filter creation
+            filter_columns = [
+                'Organization_Code',
+                'Account_Number',
+                'Sub_Account_Number',
+                'Object_Code',
+                'Period_Number',
+                'Fiscal_Year',
+                'Category_Description'
+            ]
+
+            selected_filters = {}
+            filter_types = ["Contains", "Starts with", "Ends with"]
+
+            for col in filter_columns:
                 try:
-                    options = sorted(options, key=lambda x: float(x))
-                except (ValueError, TypeError):
-                    options = sorted(options, key=lambda x: str(x))
-                selected = st.multiselect(
-                    label=f"Select {col.replace('_', ' ')}",
-                    options=options,
-                    key=f"filter_{col}"
-                )
-                selected_filters[col] = selected
-            except KeyError:
-                st.error(f"Column '{col}' not found in dataset")
-                st.stop()
-    # print(selected_filters)
+                    options = df[col].dropna().unique()
 
-    # Apply filters
-    filtered_df = df.copy()
-    for col, values in selected_filters.items():
-        if values:
-            filtered_df = filtered_df[filtered_df[col].isin(values)]
-    filtered_df.to_csv("Account Detail_ Transactions.csv",index=False)
+                    # Format Object Code columns to 4-digit strings
+                    if col in ["Object_Code"]:
+                        options = [str(int(x)).zfill(4) if pd.notnull(x) and str(x).isdigit() else str(x) for x in options]
 
-    # Main Content
-    col1, col2 = st.columns([1, 3])
-    # print(filtered_df)
+                    # Attempt to sort numerically if possible; fall back to string sort
+                    try:
+                        options = sorted(options, key=lambda x: float(x))
+                    except (ValueError, TypeError):
+                        options = sorted(options, key=lambda x: str(x))
+                    selected = st.multiselect(
+                        label=f"Select {col.replace('_', ' ')}",
+                        options=options,
+                        key=f"filter_{col}"
+                    )
+                    selected_filters[col] = selected
+                except KeyError:
+                    st.error(f"Column '{col}' not found in dataset")
+                    st.stop()
+        # print(selected_filters)
 
-    # CMA = filtered_df["Current_Month_Actuals"]
-    #     # FY = filtered_df["Fiscal_Year"]
-    #     # FY_2023 = FY == 2023
-    #     # CMA_2023 = CMA[FY_2023]
-    #     # CMA_2023.sum()
-    #     #
-    #     # # filtering for period 1
-    #     # PER = filtered_df["Period_Number"]
-    #     # PER_01 = PER == "01"
-    #     # CMA_01 = CMA[PER_01]
-    #     # PER_01.sum()
+        # Apply filters
+        filtered_df = df.copy()
+        for col, values in selected_filters.items():
+            if values:
+                filtered_df = filtered_df[filtered_df[col].isin(values)]
+        filtered_df.to_csv("Account Detail_ Transactions.csv",index=False)
 
-    periods_sum = (
-    filtered_df
-        .groupby(["Fiscal_Year", "Period_Number"], as_index = False)
-        .agg({"Current_Month_Actuals": "sum"})
-    )
+        # Main Content
+        col1, col2 = st.columns([1, 3])
+        # print(filtered_df)
 
-    CMA_pivot = periods_sum.pivot(
-                      index = 'Period_Number',
-                      columns = 'Fiscal_Year',
-                      values = 'Current_Month_Actuals')
+        # CMA = filtered_df["Current_Month_Actuals"]
+        #     # FY = filtered_df["Fiscal_Year"]
+        #     # FY_2023 = FY == 2023
+        #     # CMA_2023 = CMA[FY_2023]
+        #     # CMA_2023.sum()
+        #     #
+        #     # # filtering for period 1
+        #     # PER = filtered_df["Period_Number"]
+        #     # PER_01 = PER == "01"
+        #     # CMA_01 = CMA[PER_01]
+        #     # PER_01.sum()
 
-    CMA_pivot_styled = CMA_pivot.style.format(lambda x: f"{x:,.0f}")
+        periods_sum = (
+        filtered_df
+            .groupby(["Fiscal_Year", "Period_Number"], as_index = False)
+            .agg({"Current_Month_Actuals": "sum"})
+        )
 
-    st.write("Period Actuals")
-    st.dataframe(CMA_pivot_styled, use_container_width=False)
+        CMA_pivot = periods_sum.pivot(
+                          index = 'Period_Number',
+                          columns = 'Fiscal_Year',
+                          values = 'Current_Month_Actuals')
 
-    # df = pd.read_csv('toiletpaper_daily_sales.csv')
+        CMA_pivot_styled = CMA_pivot.style.format(lambda x: f"{x:,.0f}")
 
-    filtered_df = filtered_df.drop(filtered_df[filtered_df.Period_Number == "BB"].index)
-    filtered_df = filtered_df.drop(filtered_df[filtered_df.Period_Number == "CB"].index)
-    # print(filtered_df.dtypes)
-    #     filtered_df[filtered_df["Period_Number"]=="13"] = 12
-    filtered_df.Period_Number[filtered_df["Period_Number"] == "13"] = 12
+        st.write("Period Actuals")
+        st.dataframe(CMA_pivot_styled, use_container_width=False)
 
-    filtered_df['date_string'] = filtered_df['Fiscal_Year'].astype(str) + '-' + filtered_df['Period_Number'].astype(
-        str) + '-01'
-    # print(filtered_df['date_string'])
-    # print(filtered_df.where(filtered_df["date_string"] == "12-12-01"))
-    filtered_df['ds'] = pd.to_datetime(filtered_df['date_string'])
-    print("made it to here")
-    # make new dataframe (select rows with year 2025)
-    # then make use of groupby techniques (higher up), so sum
+        # df = pd.read_csv('toiletpaper_daily_sales.csv')
 
-    # #print(filtered_df)
-    sum_actuals = filtered_df.groupby('ds', as_index=False).agg({"Current_Month_Actuals": 'sum'})
-    # # st.table(data=sum_actuals.iloc[:200])
-    sum_actuals['y'] = sum_actuals.Current_Month_Actuals
-    # # print(sum_actuals.Current_Month_Actuals)
-    sum_actuals = sum_actuals.drop(columns='Current_Month_Actuals')
-    predict_df = run_fit_predict(sum_actuals)
+        filtered_df = filtered_df.drop(filtered_df[filtered_df.Period_Number == "BB"].index)
+        filtered_df = filtered_df.drop(filtered_df[filtered_df.Period_Number == "CB"].index)
+        # print(filtered_df.dtypes)
+        #     filtered_df[filtered_df["Period_Number"]=="13"] = 12
+        filtered_df.Period_Number[filtered_df["Period_Number"] == "13"] = 12
 
-    # Extract the year and month into a new column
-    predict_df['year'] = predict_df['ds'].dt.year
-    predict_df['month'] = predict_df['ds'].dt.month
-    print(predict_df)
+        filtered_df['date_string'] = filtered_df['Fiscal_Year'].astype(str) + '-' + filtered_df['Period_Number'].astype(
+            str) + '-01'
+        # print(filtered_df['date_string'])
+        # print(filtered_df.where(filtered_df["date_string"] == "12-12-01"))
+        filtered_df['ds'] = pd.to_datetime(filtered_df['date_string'])
+        print("made it to here")
+        # make new dataframe (select rows with year 2025)
+        # then make use of groupby techniques (higher up), so sum
 
-    max_row = sum_actuals['ds'].max()
-    predict_df = predict_df[predict_df.ds > max_row]
-    predict_pivot = predict_df.pivot(
-                      index = 'month',
-                      columns = 'year',
-                      values = 'yhat1')
-    predict_pivot_styled = predict_pivot.style.format("{:,.0f}")
+        # #print(filtered_df)
+        sum_actuals = filtered_df.groupby('ds', as_index=False).agg({"Current_Month_Actuals": 'sum'})
+        # # st.table(data=sum_actuals.iloc[:200])
+        sum_actuals['y'] = sum_actuals.Current_Month_Actuals
+        # # print(sum_actuals.Current_Month_Actuals)
+        sum_actuals = sum_actuals.drop(columns='Current_Month_Actuals')
+        predict_df = run_fit_predict(sum_actuals)
 
-    years_sum = (
-    predict_df
-        .groupby(['year'], as_index = False)
-        .agg({'yhat1': 'sum'})
-        .pivot_table(
-            index = None,
-            columns = 'year',
-            values = 'yhat1')
-    )
+        # Extract the year and month into a new column
+        predict_df['year'] = predict_df['ds'].dt.year
+        predict_df['month'] = predict_df['ds'].dt.month
+        print(predict_df)
 
-    years_sum.index = ["Totals"]
+        max_row = sum_actuals['ds'].max()
+        predict_df = predict_df[predict_df.ds > max_row]
+        predict_pivot = predict_df.pivot(
+                          index = 'month',
+                          columns = 'year',
+                          values = 'yhat1')
+        predict_pivot_styled = predict_pivot.style.format("{:,.0f}")
 
-    years_sum_styled = years_sum.style.format("{:,.0f}")
-    # CMA_pivot_styled = CMA_pivot.style.format(lambda x: f"{x:,.0f}")
-    #
-    st.write("Period Actuals")
-    st.dataframe(predict_pivot_styled, use_container_width=False)
-    st.dataframe(years_sum_styled, use_container_width=False)
+        years_sum = (
+        predict_df
+            .groupby(['year'], as_index = False)
+            .agg({'yhat1': 'sum'})
+            .pivot_table(
+                index = None,
+                columns = 'year',
+                values = 'yhat1')
+        )
+
+        years_sum.index = ["Totals"]
+
+        years_sum_styled = years_sum.style.format("{:,.0f}")
+        # CMA_pivot_styled = CMA_pivot.style.format(lambda x: f"{x:,.0f}")
+        #
+        st.write("Period Actuals")
+        st.dataframe(predict_pivot_styled, use_container_width=False)
+        st.dataframe(years_sum_styled, use_container_width=False)
 
 if __name__ == "__main__":
     main()
