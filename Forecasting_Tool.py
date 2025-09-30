@@ -4,9 +4,10 @@ import plotly.express as px
 from pathlib import Path
 from neuralprophet import NeuralProphet
 
+
 # Configuration
-DATA_PATH = Path(
-    r"Account Detail_ Transactions.csv")
+# DATA_PATH = Path(
+#     r"Account Detail_ Transactions.csv")
 LOGO_PATH = Path(r"FSSLogo.png")
 
 def handle_duplicate_columns(df):
@@ -37,22 +38,28 @@ def handle_duplicate_columns(df):
 def load_data():
     """Load and preprocess data with error handling"""
     try:
-        if not DATA_PATH.exists():
-            raise FileNotFoundError(f"Data file not found: {DATA_PATH}")
+        # if not DATA_PATH.exists():
+        #     raise FileNotFoundError(f"Data file not found: {DATA_PATH}")
 
-        df = pd.read_csv(DATA_PATH, encoding='utf-8')
-        df = handle_duplicate_columns(df)
+        # df = pd.read_csv(DATA_PATH, encoding='utf-8')
 
-        required_columns = {
-            'Organization_Code', 'Account_Number',
-            'Fiscal_Year', 'Current_Month_Actuals'
-        }
-        missing = required_columns - set(df.columns)
-        if missing:
-            st.error(f"Missing required columns: {', '.join(missing)}")
-            st.stop()
+        upload_res = st.file_uploader("Fiscal CSV Upload")
+        if upload_res is not None:
+            df = pd.read.csv(upload_res)
+            st.write(df)
 
-        return df
+            df = handle_duplicate_columns(df)
+
+            required_columns = {
+                'Organization_Code', 'Account_Number',
+                'Fiscal_Year', 'Current_Month_Actuals'
+            }
+            missing = required_columns - set(df.columns)
+            if missing:
+                st.error(f"Missing required columns: {', '.join(missing)}")
+                st.stop()
+
+            return df
     except Exception as e:
         st.error(f"Error loading data: {str(e)}")
         st.stop()
