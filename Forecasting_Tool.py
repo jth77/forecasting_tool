@@ -201,8 +201,9 @@ def main():
     predict_df['year'] = predict_df['ds'].dt.year
     predict_df['month'] = predict_df['ds'].dt.month
     print(predict_df)
-    max_year = filtered_df['Fiscal_Year'].max()
-    predict_df = predict_df[predict_df.year > max_year]
+
+    max_row = sum_actuals['ds'].max()
+    predict_df = predict_df[predict_df.ds > max_row]
     predict_pivot = predict_df.pivot(
                       index = 'month',
                       columns = 'year',
