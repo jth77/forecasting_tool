@@ -6,9 +6,8 @@ from neuralprophet import NeuralProphet
 
 # Configuration
 DATA_PATH = Path(
-    r"proxydataset.csv")
+    r"Account Detail_ Transactions.csv")
 LOGO_PATH = Path(r"FSSLogo.png")
-
 
 def handle_duplicate_columns(df):
     """Clean and deduplicate column names"""
@@ -139,7 +138,7 @@ def main():
     for col, values in selected_filters.items():
         if values:
             filtered_df = filtered_df[filtered_df[col].isin(values)]
-    filtered_df.to_csv("proxydataset.csv",index=False)
+    filtered_df.to_csv("Account Detail_ Transactions.csv",index=False)
 
     # Main Content
     col1, col2 = st.columns([1, 3])
@@ -202,7 +201,8 @@ def main():
     predict_df['year'] = predict_df['ds'].dt.year
     predict_df['month'] = predict_df['ds'].dt.month
     print(predict_df)
-    predict_df = predict_df[predict_df.year >= 2025]
+    max_year = filtered_df['Fiscal_Year'].max()
+    predict_df = predict_df[predict_df.year > max_year]
     predict_pivot = predict_df.pivot(
                       index = 'month',
                       columns = 'year',
