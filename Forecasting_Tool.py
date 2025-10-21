@@ -5,6 +5,8 @@ from pathlib import Path
 from neuralprophet import NeuralProphet
 
 
+
+
 # Configuration
 # DATA_PATH = Path(
 #     r"Account Detail_ Transactions.csv")
@@ -80,6 +82,9 @@ def run_fit_predict(input_df):
     return forecast
 
 def main():
+
+    col1, col2 = st.columns(2)
+
     # App Configuration
     st.set_page_config(page_title="Financial Forecasting Tool", layout="wide")
 
@@ -175,10 +180,14 @@ def main():
                           columns = 'Fiscal_Year',
                           values = 'Current_Month_Actuals')
 
+        sum_df = CMA_pivot.sum()
+        CMA_pivot.loc["Totals"] = sum_df
+
         CMA_pivot_styled = CMA_pivot.style.format(lambda x: f"{x:,.0f}")
 
-        st.write("Period Actuals")
-        st.dataframe(CMA_pivot_styled, use_container_width=False)
+        with col1:
+            st.write("Period Actuals")
+            st.dataframe(CMA_pivot_styled, use_container_width=False)
 
         # df = pd.read_csv('toiletpaper_daily_sales.csv')
 
@@ -216,7 +225,6 @@ def main():
                           index = 'month',
                           columns = 'year',
                           values = 'yhat1')
-        predict_pivot_styled = predict_pivot.style.format("{:,.0f}")
 
         years_sum = (
         predict_df
@@ -228,14 +236,17 @@ def main():
                 values = 'yhat1')
         )
 
-        years_sum.index = ["Totals"]
+        predict_pivot.loc["Totals"] = predict_pivot.sum()
+
+        predict_pivot_styled = predict_pivot.style.format("{:,.0f}")
 
         years_sum_styled = years_sum.style.format("{:,.0f}")
         # CMA_pivot_styled = CMA_pivot.style.format(lambda x: f"{x:,.0f}")
         #
-        st.write("Period Actuals")
-        st.dataframe(predict_pivot_styled, use_container_width=False)
-        st.dataframe(years_sum_styled, use_container_width=False)
+
+        with col2:
+            st.write("Forecast")
+            st.dataframe(predict_pivot_styled, use_container_width=False)
 
 if __name__ == "__main__":
     main()
