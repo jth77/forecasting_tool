@@ -4,17 +4,14 @@ import plotly.express as px
 from pathlib import Path
 from neuralprophet import NeuralProphet
 
-
-
-
 # Configuration
-# DATA_PATH = Path(
-#     r"Account Detail_ Transactions.csv")
 LOGO_PATH = Path(r"FSSLogo.png")
 
+# ----------------------------
+# Utility Functions
+# ----------------------------
 def handle_duplicate_columns(df):
     """Clean and deduplicate column names"""
-    # Standardize column names
     df.columns = (
         df.columns.str.strip()
         .str.replace('\xa0', ' ')
@@ -24,7 +21,6 @@ def handle_duplicate_columns(df):
         .str.replace(' ', '_')
     )
 
-    # Rename duplicate columns
     cols = pd.Series(df.columns)
     duplicates = cols[cols.duplicated()].unique()
     for dup in duplicates:
@@ -40,12 +36,6 @@ def handle_duplicate_columns(df):
 def load_data(df):
     """Load and preprocess data with error handling"""
     try:
-        # if not DATA_PATH.exists():
-        #     raise FileNotFoundError(f"Data file not found: {DATA_PATH}")
-
-        # df = pd.read_csv(DATA_PATH, encoding='utf-8')
-
-
         df = handle_duplicate_columns(df)
 
         required_columns = {
@@ -62,41 +52,30 @@ def load_data(df):
         st.error(f"Error loading data: {str(e)}")
         st.stop()
 
+
 @st.cache_data
 def run_fit_predict(input_df):
+    """Fit NeuralProphet and return forecast"""
     m = NeuralProphet()
-
     metrics = m.fit(input_df)
-    #
-
-    # Create a new dataframe reaching 365 into the future for our forecast, n_historic_predictions also shows historic data
-    df_future = m.make_future_dataframe(input_df, n_historic_predictions=True, periods=36)
-    # n could be a user choice to choose how far back the history should go
-
+    df_future = m.make_future_dataframe(input_df, n_historic_predictions=True, periods=38)
     forecast = m.predict(df_future)
-    print(forecast)
-    my_plot = m.plot(forecast)
-    # print(my_plot)
-    # st.pyplot(my_plot)
-    st.plotly_chart(my_plot)
-    return forecast
+    return [m, forecast]
 
+
+# ----------------------------
+# Main App
+# ----------------------------
 def main():
-
-    col1, col2 = st.columns(2)
-
-    # App Configuration
     st.set_page_config(page_title="Financial Forecasting Tool", layout="wide")
+    container = st.container()
 
-    upload_res = st.file_uploader("Fiscal CSV Upload")
+    upload_res = st.file_uploader("Upload Fiscal CSV File")
     if upload_res is not None:
         df = pd.read_csv(upload_res)
-        # st.write(df)
-
-        # Load data
         df = load_data(df)
 
-        # Sidebar with Logo and Filters
+        # Sidebar with logo and filters
         with st.sidebar:
             try:
                 if LOGO_PATH.exists():
@@ -108,7 +87,6 @@ def main():
 
             st.header("Data Filters")
 
-            # Dynamic filter creation
             filter_columns = [
                 'Organization_Code',
                 'Account_Number',
@@ -120,21 +98,17 @@ def main():
             ]
 
             selected_filters = {}
-            filter_types = ["Contains", "Starts with", "Ends with"]
-
             for col in filter_columns:
                 try:
                     options = df[col].dropna().unique()
+                    if col == "Object_Code":
+                        options = [str(int(x)).zfill(4) if str(x).isdigit() else str(x) for x in options]
 
-                    # Format Object Code columns to 4-digit strings
-                    if col in ["Object_Code"]:
-                        options = [str(int(x)).zfill(4) if pd.notnull(x) and str(x).isdigit() else str(x) for x in options]
-
-                    # Attempt to sort numerically if possible; fall back to string sort
                     try:
                         options = sorted(options, key=lambda x: float(x))
                     except (ValueError, TypeError):
                         options = sorted(options, key=lambda x: str(x))
+
                     selected = st.multiselect(
                         label=f"Select {col.replace('_', ' ')}",
                         options=options,
@@ -142,112 +116,120 @@ def main():
                     )
                     selected_filters[col] = selected
                 except KeyError:
-                    st.error(f"Column '{col}' not found in dataset")
-                    st.stop()
-        # print(selected_filters)
+                    pass
 
         # Apply filters
         filtered_df = df.copy()
         for col, values in selected_filters.items():
             if values:
                 filtered_df = filtered_df[filtered_df[col].isin(values)]
-        filtered_df.to_csv("Account Detail_ Transactions.csv",index=False)
 
-        # Main Content
-        col1, col2 = st.columns([1, 3])
-        # print(filtered_df)
+        filtered_df.to_csv("Account Detail_ Transactions.csv", index=False)
 
-        # CMA = filtered_df["Current_Month_Actuals"]
-        #     # FY = filtered_df["Fiscal_Year"]
-        #     # FY_2023 = FY == 2023
-        #     # CMA_2023 = CMA[FY_2023]
-        #     # CMA_2023.sum()
-        #     #
-        #     # # filtering for period 1
-        #     # PER = filtered_df["Period_Number"]
-        #     # PER_01 = PER == "01"
-        #     # CMA_01 = CMA[PER_01]
-        #     # PER_01.sum()
+        # ----------------------------
+        # Data Cleaning for Forecast
+        # ----------------------------
+        filtered_df = filtered_df[~filtered_df['Period_Number'].isin(['BB', 'CB'])]
 
+        # Convert period numbers to numeric and clean up
+        filtered_df['Period_Number'] = pd.to_numeric(filtered_df['Period_Number'], errors='coerce')
+        filtered_df['Period_Number'] = filtered_df['Period_Number'].replace(13, 12).astype('Int64')
+
+        # ----------------------------
+        # Actuals Table
+        # ----------------------------
         periods_sum = (
-        filtered_df
-            .groupby(["Fiscal_Year", "Period_Number"], as_index = False)
+            filtered_df
+            .groupby(["Fiscal_Year", "Period_Number"], as_index=False)
             .agg({"Current_Month_Actuals": "sum"})
         )
 
         CMA_pivot = periods_sum.pivot(
-                          index = 'Period_Number',
-                          columns = 'Fiscal_Year',
-                          values = 'Current_Month_Actuals')
+            index='Period_Number',
+            columns='Fiscal_Year',
+            values='Current_Month_Actuals'
+        )
 
-        sum_df = CMA_pivot.sum()
-        CMA_pivot.loc["Totals"] = sum_df
-
+        CMA_pivot.loc["Totals"] = CMA_pivot.sum()
         CMA_pivot_styled = CMA_pivot.style.format(lambda x: f"{x:,.0f}")
 
-        with col1:
-            st.write("Period Actuals")
-            st.dataframe(CMA_pivot_styled, use_container_width=False)
+        # Build valid YYYY-MM-DD strings
+        filtered_df['date_string'] = (
+            filtered_df['Fiscal_Year'].astype(str)
+            + '-' +
+            filtered_df['Period_Number'].astype(str).str.zfill(2)
+            + '-01'
+        )
 
-        # df = pd.read_csv('toiletpaper_daily_sales.csv')
+        # Convert to datetime safely
+        filtered_df['ds'] = pd.to_datetime(filtered_df['date_string'], errors='coerce')
 
-        filtered_df = filtered_df.drop(filtered_df[filtered_df.Period_Number == "BB"].index)
-        filtered_df = filtered_df.drop(filtered_df[filtered_df.Period_Number == "CB"].index)
-        # print(filtered_df.dtypes)
-        #     filtered_df[filtered_df["Period_Number"]=="13"] = 12
-        filtered_df.Period_Number[filtered_df["Period_Number"] == "13"] = 12
+        # Drop invalid rows
+        if filtered_df['ds'].isna().any():
+            st.warning("⚠️ Some rows had invalid dates and were dropped.")
+            filtered_df = filtered_df.dropna(subset=['ds'])
 
-        filtered_df['date_string'] = filtered_df['Fiscal_Year'].astype(str) + '-' + filtered_df['Period_Number'].astype(
-            str) + '-01'
-        # print(filtered_df['date_string'])
-        # print(filtered_df.where(filtered_df["date_string"] == "12-12-01"))
-        filtered_df['ds'] = pd.to_datetime(filtered_df['date_string'])
-        print("made it to here")
-        # make new dataframe (select rows with year 2025)
-        # then make use of groupby techniques (higher up), so sum
-
-        # #print(filtered_df)
+        # ----------------------------
+        # Prepare Forecast Data
+        # ----------------------------
         sum_actuals = filtered_df.groupby('ds', as_index=False).agg({"Current_Month_Actuals": 'sum'})
-        # # st.table(data=sum_actuals.iloc[:200])
-        sum_actuals['y'] = sum_actuals.Current_Month_Actuals
-        # # print(sum_actuals.Current_Month_Actuals)
+        sum_actuals['y'] = sum_actuals['Current_Month_Actuals']
         sum_actuals = sum_actuals.drop(columns='Current_Month_Actuals')
-        predict_df = run_fit_predict(sum_actuals)
 
-        # Extract the year and month into a new column
+        res = run_fit_predict(sum_actuals)
+        predict_df = res[1]
+        m = res[0]
+
+        # Plot Below
+
+        with (container):
+            my_plot = m.plot(predict_df)
+            st.plotly_chart(my_plot)
+
+        # Add Year and Month Columns
         predict_df['year'] = predict_df['ds'].dt.year
         predict_df['month'] = predict_df['ds'].dt.month
-        print(predict_df)
 
+        # Show only future periods
         max_row = sum_actuals['ds'].max()
         predict_df = predict_df[predict_df.ds > max_row]
-        predict_pivot = predict_df.pivot(
-                          index = 'month',
-                          columns = 'year',
-                          values = 'yhat1')
 
-        years_sum = (
-        predict_df
-            .groupby(['year'], as_index = False)
-            .agg({'yhat1': 'sum'})
-            .pivot_table(
-                index = None,
-                columns = 'year',
-                values = 'yhat1')
+        predict_pivot = predict_df.pivot(
+            index='month',
+            columns='year',
+            values='yhat1'
         )
 
         predict_pivot.loc["Totals"] = predict_pivot.sum()
-
         predict_pivot_styled = predict_pivot.style.format("{:,.0f}")
 
-        years_sum_styled = years_sum.style.format("{:,.0f}")
-        # CMA_pivot_styled = CMA_pivot.style.format(lambda x: f"{x:,.0f}")
-        #
+        with (container):
+            CMA_pivot_prefixed = CMA_pivot.add_prefix("Actual_")
+            predict_pivot_prefixed = predict_pivot.add_prefix("Forecast_")
 
-        with col2:
-            st.write("Forecast")
-            st.dataframe(predict_pivot_styled, use_container_width=False)
+            # Assign multi-index columns
+            CMA_pivot_prefixed.columns = pd.MultiIndex.from_product(
+                [["Actuals"], CMA_pivot_prefixed.columns]
+            )
 
+            predict_pivot_prefixed.columns = pd.MultiIndex.from_product(
+                [["Forecast"], predict_pivot_prefixed.columns]
+            )
+
+            df_combined = pd.concat([CMA_pivot_prefixed, predict_pivot_prefixed], axis=1)
+
+            def shade_forecast(col_series):
+                top_level = col_series.name[0]  # "Actuals" or "Forecast"
+                if top_level == "Forecast":
+                    return ['background-color: lightgray'] * len(col_series)
+                return [''] * len(col_series)
+
+            styled_combined = df_combined.style.apply(shade_forecast, axis=0).format("{:,.0f}")
+
+            st.write(styled_combined)
+
+# ----------------------------
+# Run App
+# ----------------------------
 if __name__ == "__main__":
     main()
-
