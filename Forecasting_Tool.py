@@ -67,6 +67,9 @@ def run_fit_predict(input_df):
 # Main App
 # ----------------------------
 def main():
+    a, b = st.columns(2)
+    c, d = st.columns(2)
+
     st.set_page_config(page_title="Financial Forecasting Tool", layout="wide")
     container = st.container()
 
@@ -228,6 +231,21 @@ def main():
 
             st.write(styled_combined)
 
+            totals_row = predict_pivot.loc["Totals"]
+            type(totals_row)
+
+            row = st.container(horizontal=True)
+            with row:
+                for index in range(totals_row.shape[0]):
+                    year = totals_row.index[index]
+                    value = totals_row[index]
+                    st.metric("Line", 10, delta, chart_data=data, chart_type="line", border=True)
+
+    a.metric(year, value, "change1", border=True)
+    b.metric("b", "main2", "change2", border=True)
+
+    c.metric("c", "main3", "change3", border=True)
+    d.metric("d", "main4", "change4", border=True)
 # ----------------------------
 # Run App
 # ----------------------------
