@@ -206,11 +206,79 @@ def main():
         predict_pivot.loc["Totals"] = predict_pivot.sum()
         predict_pivot_styled = predict_pivot.style.format("{:,.0f}")
 
-        with (container):
+        # ----------------------------
+        # Build yearly forecast totals
+        # ----------------------------
+
+        # Actuals by year
+        actuals_by_year = (
+            filtered_df
+            .groupby(filtered_df['ds'].dt.year)
+            .agg({"Current_Month_Actuals": "sum"})
+            .rename(columns={"Current_Month_Actuals": "actuals"})
+        )
+
+        # Forecast by year (future only)
+        forecast_by_year = (
+            predict_df[predict_df['ds'] > sum_actuals['ds'].max()]
+            .groupby(predict_df['ds'].dt.year)
+            .agg({"yhat1": "sum"})
+            .rename(columns={"yhat1": "forecast"})
+        )
+
+        # Combine actuals + forecast
+        yearly_totals = actuals_by_year.join(forecast_by_year, how="outer").fillna(0)
+        yearly_totals["total"] = yearly_totals["actuals"] + yearly_totals["forecast"]
+        yearly_totals = yearly_totals.sort_index()
+        yearly_totals["delta"] = yearly_totals["total"].diff()
+
+        # Invert delta for Streamlit coloring (expenses: lower is better)
+        yearly_totals["delta_display"] = -yearly_totals["delta"]
+
+        # ----------------------------
+        # Define hot take years (STEP 3)
+        # ----------------------------
+
+        current_year = sum_actuals['ds'].dt.year.max()
+
+        hot_take_years = [
+            current_year,
+            current_year + 1,
+            current_year + 2,
+            current_year + 3
+        ]
+
+        # ----------------------------
+        # Forecast Hot Takes (TOP)
+        # ----------------------------
+        st.subheader("📌 Forecast Hot Takes")
+
+        hot_take_cols = st.columns(len(hot_take_years))
+
+        for col, year in zip(hot_take_cols, hot_take_years):
+            if year in yearly_totals.index:
+                total_value = yearly_totals.loc[year, "total"]
+                delta_value = yearly_totals.loc[year, "delta"]
+
+                if pd.isna(delta_value):
+                    delta_display = None
+                else:
+                    delta_display = f"{delta_value:,.0f}"  # keeps minus sign + commas
+
+                col.metric(
+                    label=f"FY {year}",
+                    value=f"${total_value:,.0f}",
+                    delta=delta_display,
+                    border=True
+                )
+
+        # ----------------------------
+        # Combined Actuals + Forecast Table (render ONCE)
+        # ----------------------------
+        with container:
             CMA_pivot_prefixed = CMA_pivot.add_prefix("Actual_")
             predict_pivot_prefixed = predict_pivot.add_prefix("Forecast_")
 
-            # Assign multi-index columns
             CMA_pivot_prefixed.columns = pd.MultiIndex.from_product(
                 [["Actuals"], CMA_pivot_prefixed.columns]
             )
@@ -219,35 +287,30 @@ def main():
                 [["Forecast"], predict_pivot_prefixed.columns]
             )
 
-            df_combined = pd.concat([CMA_pivot_prefixed, predict_pivot_prefixed], axis=1)
+            df_combined = pd.concat(
+                [CMA_pivot_prefixed, predict_pivot_prefixed],
+                axis=1
+            )
 
             def shade_forecast(col_series):
-                top_level = col_series.name[0]  # "Actuals" or "Forecast"
-                if top_level == "Forecast":
-                    return ['background-color: lightgray'] * len(col_series)
-                return [''] * len(col_series)
+                return (
+                    ['background-color: lightgray'] * len(col_series)
+                    if col_series.name[0] == "Forecast"
+                    else [''] * len(col_series)
+                )
 
-            styled_combined = df_combined.style.apply(shade_forecast, axis=0).format("{:,.0f}")
+            styled_combined = (
+                df_combined
+                .style
+                .apply(shade_forecast, axis=0)
+                .format("{:,.0f}")
+            )
 
             st.write(styled_combined)
 
-            totals_row = predict_pivot.loc["Totals"]
-            type(totals_row)
-
-            row = st.container(horizontal=True)
-            with row:
-                for index in range(totals_row.shape[0]):
-                    year = totals_row.index[index]
-                    value = totals_row[index]
-                    st.metric("Line", 10, delta, chart_data=data, chart_type="line", border=True)
-
-    a.metric(year, value, "change1", border=True)
-    b.metric("b", "main2", "change2", border=True)
-
-    c.metric("c", "main3", "change3", border=True)
-    d.metric("d", "main4", "change4", border=True)
 # ----------------------------
 # Run App
 # ----------------------------
+
 if __name__ == "__main__":
     main()
