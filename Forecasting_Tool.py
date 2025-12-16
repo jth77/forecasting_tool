@@ -183,7 +183,9 @@ def main():
         predict_df = res[1]
         m = res[0]
 
-        # Plot Below
+        # ----------------------------
+        # Plot Below, Attempted to placed graph lower, removed dots, couldn't figure out why. Need to containerize each section.
+        # ----------------------------
 
         with (container):
             my_plot = m.plot(predict_df)
@@ -236,7 +238,7 @@ def main():
         yearly_totals["delta_display"] = -yearly_totals["delta"]
 
         # ----------------------------
-        # Define hot take years (STEP 3)
+        # Define hot take years
         # ----------------------------
 
         current_year = sum_actuals['ds'].dt.year.max()
@@ -249,48 +251,56 @@ def main():
         ]
 
         # ----------------------------
-        # Forecast Hot Takes (TOP)
-        # ----------------------------
-        st.subheader("📌 Forecast Hot Takes")
-
-        hot_take_cols = st.columns(len(hot_take_years))
-
-        for col, year in zip(hot_take_cols, hot_take_years):
-            if year in yearly_totals.index:
-                total_value = yearly_totals.loc[year, "total"]
-                delta_value = yearly_totals.loc[year, "delta"]
-
-                if pd.isna(delta_value):
-                    delta_display = None
-                else:
-                    delta_display = f"{delta_value:,.0f}"  # keeps minus sign + commas
-
-                col.metric(
-                    label=f"FY {year}",
-                    value=f"${total_value:,.0f}",
-                    delta=delta_display,
-                    border=True
-                )
-
-        # ----------------------------
-        # Combined Actuals + Forecast Table (render ONCE)
+        # Combined Actuals + Forecast Table
         # ----------------------------
         with container:
+            # ----------------------------
+            # Forecast Hot Takes (TOP)
+            # ----------------------------
+            st.subheader("📌 Forecast Hot Takes")
+
+            hot_take_cols = st.columns(len(hot_take_years))
+
+            for col, year in zip(hot_take_cols, hot_take_years):
+                if year in yearly_totals.index:
+                    total_value = yearly_totals.loc[year, "total"]
+                    delta_value = yearly_totals.loc[year, "delta"]
+
+                    if pd.isna(delta_value):
+                        delta_display = None
+                    else:
+                        delta_display = f"{delta_value:,.0f}"  # keeps minus sign + commas
+
+                    col.metric(
+                        label=f"FY {year}",
+                        value=f"${total_value:,.0f}",
+                        delta=delta_display,
+                        border=True
+                    )
+
             CMA_pivot_prefixed = CMA_pivot.add_prefix("Actual_")
             predict_pivot_prefixed = predict_pivot.add_prefix("Forecast_")
 
-            CMA_pivot_prefixed.columns = pd.MultiIndex.from_product(
-                [["Actuals"], CMA_pivot_prefixed.columns]
-            )
-
-            predict_pivot_prefixed.columns = pd.MultiIndex.from_product(
-                [["Forecast"], predict_pivot_prefixed.columns]
-            )
+            # CMA_pivot_prefixed.columns = pd.MultiIndex.from_product(
+            #     [["Actuals"], CMA_pivot_prefixed.columns]
+            # )
+            #
+            # predict_pivot_prefixed.columns = pd.MultiIndex.from_product(
+            #     [["Forecast"], predict_pivot_prefixed.columns]
+            # )
 
             df_combined = pd.concat(
                 [CMA_pivot_prefixed, predict_pivot_prefixed],
                 axis=1
             )
+
+            df_gapfilled = df_combined["Actual_2025"].fillna(df_combined["Forecast_2025"])
+            df_combined["Actual_2025"] = df_gapfilled
+
+            df_combined.drop(columns=["Forecast_2025"], inplace=True)
+            df_combined.drop(index=["Totals"], inplace=True)
+
+            df_combined.loc["Totals"] = df_combined.sum()
 
             def shade_forecast(col_series):
                 return (
