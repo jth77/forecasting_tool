@@ -4,10 +4,7 @@ import plotly.express as px
 from pathlib import Path
 from neuralprophet import NeuralProphet
 
-st.set_page_config(
-    page_title="Financial Forecasting Tool",
-    layout="wide"
-)
+st.set_page_config(page_title="Financial Forecasting Tool", layout="wide")
 
 # Configuration
 LOGO_PATH = Path(r"FSSLogo.png")
