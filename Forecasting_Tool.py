@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.express as px
 from pathlib import Path
 from neuralprophet import NeuralProphet
+from streamlit.delta_generator import DeltaGenerator
 
 # Configuration
 LOGO_PATH = Path(r"FSSLogo.png")
@@ -71,7 +72,8 @@ def main():
     c, d = st.columns(2)
 
     st.set_page_config(page_title="Financial Forecasting Tool", layout="wide")
-    container = st.container()
+    metrics_container = st.container()
+    plot_container = st.container()
 
     upload_res = st.file_uploader("Upload Fiscal CSV File")
     if upload_res is not None:
@@ -187,7 +189,8 @@ def main():
         # Plot Below, Attempted to placed graph lower, removed dots, couldn't figure out why. Need to containerize each section.
         # ----------------------------
 
-        with (container):
+        with (plot_container):
+
             my_plot = m.plot(predict_df)
             st.plotly_chart(my_plot)
 
@@ -253,11 +256,11 @@ def main():
         # ----------------------------
         # Combined Actuals + Forecast Table
         # ----------------------------
-        with container:
+        with metrics_container:
             # ----------------------------
             # Forecast Hot Takes (TOP)
             # ----------------------------
-            st.subheader("📌 Forecast Hot Takes")
+            st.subheader("🔥 Forecast Hot Takes")
 
             hot_take_cols = st.columns(len(hot_take_years))
 
