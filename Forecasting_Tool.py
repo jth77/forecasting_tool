@@ -3,7 +3,11 @@ import pandas as pd
 import plotly.express as px
 from pathlib import Path
 from neuralprophet import NeuralProphet
-from streamlit.delta_generator import DeltaGenerator
+
+st.set_page_config(
+    page_title="Financial Forecasting Tool",
+    layout="wide"
+)
 
 # Configuration
 LOGO_PATH = Path(r"FSSLogo.png")
@@ -71,9 +75,9 @@ def main():
     a, b = st.columns(2)
     c, d = st.columns(2)
 
-    st.set_page_config(page_title="Financial Forecasting Tool", layout="wide")
     metrics_container = st.container()
     plot_container = st.container()
+    table_container = st.container()
 
     upload_res = st.file_uploader("Upload Fiscal CSV File")
     if upload_res is not None:
@@ -281,6 +285,7 @@ def main():
                         border=True
                     )
 
+        with table_container:
             CMA_pivot_prefixed = CMA_pivot.add_prefix("Actual_")
             predict_pivot_prefixed = predict_pivot.add_prefix("Forecast_")
 
