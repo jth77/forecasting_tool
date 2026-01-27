@@ -175,6 +175,10 @@ def main():
             st.warning("⚠️ Some rows had invalid dates and were dropped.")
             filtered_df = filtered_df.dropna(subset=['ds'])
 
+# Identify the maximum date in the dataset
+
+        max_dt = filtered_df['ds'].max()
+
         # ----------------------------
         # Prepare Forecast Data
         # ----------------------------
@@ -307,17 +311,26 @@ def main():
 
             df_combined.loc["Totals"] = df_combined.sum()
 
-            def shade_forecast(col_series):
-                return (
-                    ['background-color: lightgray'] * len(col_series)
-                    if col_series.name[0] == "Forecast"
-                    else [''] * len(col_series)
-                )
+            #  Shade any year/period beyond maximum date in light gray
+
+            def shade_forecast(column, max_dt):
+                color = []
+                year = column.name.split("_")[1]
+                for i, period_element in enumerate(column.index):
+                    if period_element == "Totals":
+                        color.append(color[-1])
+                        continue
+                    ds = pd.to_datetime(str(year) + "-" + str(period_element) + "-01")
+                    if ds > max_dt:
+                        color.append("background-color: lightgray")
+                    else:
+                        color.append("background-color: white")
+                return color
 
             styled_combined = (
                 df_combined
                 .style
-                .apply(shade_forecast, axis=0)
+                .apply(shade_forecast, max_dt = max_dt)
                 .format("{:,.0f}")
             )
 
