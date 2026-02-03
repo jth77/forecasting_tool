@@ -7,6 +7,7 @@ from neuralprophet import NeuralProphet
 st.set_page_config(page_title="Financial Forecasting Tool", layout="wide")
 
 # Configuration
+st.title("FSS Forecasting Tool")
 LOGO_PATH = Path(r"FSSLogo.png")
 
 # ----------------------------
@@ -124,6 +125,9 @@ def main():
                 except KeyError:
                     pass
 
+            forecast_change = st.slider("Choose a percent rate of increased or decreased change to the forecasted amounts.", -50, 50, 1, format="percent")
+            st.write(forecast_change, "%")
+
         # Apply filters
         filtered_df = df.copy()
         for col, values in selected_filters.items():
@@ -189,6 +193,8 @@ def main():
         res = run_fit_predict(sum_actuals)
         predict_df = res[1]
         m = res[0]
+        predict_df['yhat1'] = predict_df["yhat1"] * (1 + (forecast_change/100))
+        print(predict_df.head())
 
         # ----------------------------
         # Plot Below, Attempted to placed graph lower, removed dots, couldn't figure out why. Need to containerize each section.
