@@ -336,6 +336,19 @@ def main():
 
             st.write(styled_combined)
 
+            def convert_for_download(df):
+                return df.to_csv().encode("utf-8")
+
+            csv = convert_for_download(df_combined)
+
+            st.download_button(
+                label="Download CSV",
+                data=csv,
+                file_name="data.csv",
+                mime="text/csv",
+                icon=":material/download:",
+            )
+
 # ----------------------------
 # Run App
 # ----------------------------
