@@ -7,7 +7,7 @@ from neuralprophet import NeuralProphet
 st.set_page_config(page_title="Financial Forecasting Tool", layout="wide")
 
 # Configuration
-st.title("FSS Forecasting Tool")
+st.title("FSS Budget Forecasting Tool")
 LOGO_PATH = Path(r"FSSLogo.png")
 
 # ----------------------------
@@ -61,7 +61,7 @@ def run_fit_predict(input_df):
     """Fit NeuralProphet and return forecast"""
     m = NeuralProphet()
     metrics = m.fit(input_df)
-    df_future = m.make_future_dataframe(input_df, n_historic_predictions=True, periods=38)
+    df_future = m.make_future_dataframe(input_df, n_historic_predictions=True, periods=62   )
     forecast = m.predict(df_future)
     return [m, forecast]
 
@@ -81,6 +81,8 @@ def main():
     if upload_res is not None:
         df = pd.read_csv(upload_res)
         df = load_data(df)
+
+        print('df error',df)
 
         # Sidebar with logo and filters
         with st.sidebar:
@@ -125,8 +127,7 @@ def main():
                 except KeyError:
                     pass
 
-            forecast_change = st.slider("Choose a percent rate of increased or decreased change to the forecasted amounts.", -50, 50, 1, format="percent")
-            st.write(forecast_change, "%")
+            forecast_change = st.number_input("Insert a percent:",format="%.2f",step=0.25)
 
         # Apply filters
         filtered_df = df.copy()
@@ -159,6 +160,9 @@ def main():
             columns='Fiscal_Year',
             values='Current_Month_Actuals'
         )
+
+        print("periods_sum",periods_sum)
+        print("CMA_pivot",CMA_pivot)
 
         CMA_pivot.loc["Totals"] = CMA_pivot.sum()
         CMA_pivot_styled = CMA_pivot.style.format(lambda x: f"{x:,.0f}")
@@ -197,12 +201,13 @@ def main():
         print(predict_df.head())
 
         # ----------------------------
-        # Plot Below, Attempted to placed graph lower, removed dots, couldn't figure out why. Need to containerize each section.
+        # Plot Below
         # ----------------------------
 
         with (plot_container):
-
+            new_labels = {"yhat1": "Forecast", "Actual": "Actuals"}
             my_plot = m.plot(predict_df)
+            my_plot.for_each_trace(lambda t: t.update(name = new_labels[t.name]))
             st.plotly_chart(my_plot)
 
         # Add Year and Month Columns
@@ -261,7 +266,9 @@ def main():
             current_year,
             current_year + 1,
             current_year + 2,
-            current_year + 3
+            current_year + 3,
+            current_year + 4,
+            current_year + 5
         ]
 
         # ----------------------------
@@ -271,7 +278,10 @@ def main():
             # ----------------------------
             # Forecast Hot Takes (TOP)
             # ----------------------------
-            st.subheader("🔥 Forecast Hot Takes")
+            if forecast_change == 0:
+                st.subheader("🔥 Forecast Hot Takes")
+            else:
+                st.subheader(f"🔥 Forecast Hot Takes {forecast_change:,.2f}% change")
 
             hot_take_cols = st.columns(len(hot_take_years))
 
