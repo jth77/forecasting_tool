@@ -1,13 +1,16 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
 from pathlib import Path
 from neuralprophet import NeuralProphet
 
-st.set_page_config(page_title="Financial Forecasting Tool", layout="wide")
+st.set_page_config(page_title="FSS Forecasting Tool", layout="wide")
 
 # Configuration
-st.title("FSS Budget Forecasting Tool")
+st.markdown(
+    "<h1 style='font-size: 64px;'>FSS Forecasting Tool</h1>",
+    unsafe_allow_html=True
+)
+
 LOGO_PATH = Path(r"FSSLogo.png")
 
 # ----------------------------
@@ -73,16 +76,18 @@ def main():
     a, b = st.columns(2)
     c, d = st.columns(2)
 
+    st.divider()
     metrics_container = st.container()
+    st.divider()
     plot_container = st.container()
+    st.divider()
     table_container = st.container()
+    st.divider()
 
     upload_res = st.file_uploader("Upload Fiscal CSV File")
     if upload_res is not None:
         df = pd.read_csv(upload_res)
         df = load_data(df)
-
-        print('df error',df)
 
         # Sidebar with logo and filters
         with st.sidebar:
@@ -100,10 +105,10 @@ def main():
                 'Organization_Code',
                 'Account_Number',
                 'Sub_Account_Number',
-                'Object_Code',
                 'Period_Number',
                 'Fiscal_Year',
-                'Category_Description'
+                'Category_Description',
+                'Consolidation_Object_Name'
             ]
 
             selected_filters = {}
@@ -127,7 +132,7 @@ def main():
                 except KeyError:
                     pass
 
-            forecast_change = st.number_input("Insert a percent:",format="%.2f",step=0.25)
+            forecast_change = st.number_input("To change the forecast, enter a percentage here. Use a negative number (e.g., -3%) to decrease it or a positive number to increase it:",format="%.2f",step=0.25)
 
         # Apply filters
         filtered_df = df.copy()
@@ -160,9 +165,6 @@ def main():
             columns='Fiscal_Year',
             values='Current_Month_Actuals'
         )
-
-        print("periods_sum",periods_sum)
-        print("CMA_pivot",CMA_pivot)
 
         CMA_pivot.loc["Totals"] = CMA_pivot.sum()
         CMA_pivot_styled = CMA_pivot.style.format(lambda x: f"{x:,.0f}")
@@ -198,16 +200,25 @@ def main():
         predict_df = res[1]
         m = res[0]
         predict_df['yhat1'] = predict_df["yhat1"] * (1 + (forecast_change/100))
-        print(predict_df.head())
 
         # ----------------------------
         # Plot Below
         # ----------------------------
 
         with (plot_container):
+            st.subheader("Actuals & Forecast")
+
             new_labels = {"yhat1": "Forecast", "Actual": "Actuals"}
             my_plot = m.plot(predict_df)
+            my_plot.update_layout(
+                title=dict(
+                    text="",
+                    x=0.5
+                )
+            )
             my_plot.for_each_trace(lambda t: t.update(name = new_labels[t.name]))
+            my_plot.update_yaxes(title_text="Amount ($)")
+            my_plot.update_xaxes(title_text="Date")
             st.plotly_chart(my_plot)
 
         # Add Year and Month Columns
@@ -283,36 +294,33 @@ def main():
             else:
                 st.subheader(f"🔥 Forecast Hot Takes {forecast_change:,.2f}% change")
 
-            hot_take_cols = st.columns(len(hot_take_years))
+            tiles_per_row = 3
 
-            for col, year in zip(hot_take_cols, hot_take_years):
-                if year in yearly_totals.index:
-                    total_value = yearly_totals.loc[year, "total"]
-                    delta_value = yearly_totals.loc[year, "delta"]
+            for i in range(0, len(hot_take_years), tiles_per_row):
+                cols = st.columns(tiles_per_row)
 
-                    if pd.isna(delta_value):
-                        delta_display = None
-                    else:
-                        delta_display = f"{delta_value:,.0f}"  # keeps minus sign + commas
+                for col, year in zip(cols, hot_take_years[i:i + tiles_per_row]):
+                    if year in yearly_totals.index:
+                        total_value = yearly_totals.loc[year, "total"]
+                        delta_value = yearly_totals.loc[year, "delta"]
 
-                    col.metric(
-                        label=f"FY {year}",
-                        value=f"${total_value:,.0f}",
-                        delta=delta_display,
-                        border=True
-                    )
+                        if pd.isna(delta_value):
+                            delta_display = None
+                        else:
+                            delta_display = f"{delta_value:,.0f}"  # keeps minus sign + commas
+
+                        col.metric(
+                            label=f"FY {year}",
+                            value=f"${total_value:,.0f}",
+                            delta=delta_display,
+                            border=True
+                        )
 
         with table_container:
+            st.subheader("Actuals & Forecast by Period and Fiscal Year")
+
             CMA_pivot_prefixed = CMA_pivot.add_prefix("Actual_")
             predict_pivot_prefixed = predict_pivot.add_prefix("Forecast_")
-
-            # CMA_pivot_prefixed.columns = pd.MultiIndex.from_product(
-            #     [["Actuals"], CMA_pivot_prefixed.columns]
-            # )
-            #
-            # predict_pivot_prefixed.columns = pd.MultiIndex.from_product(
-            #     [["Forecast"], predict_pivot_prefixed.columns]
-            # )
 
             df_combined = pd.concat(
                 [CMA_pivot_prefixed, predict_pivot_prefixed],
@@ -326,6 +334,8 @@ def main():
             df_combined.drop(index=["Totals"], inplace=True)
 
             df_combined.loc["Totals"] = df_combined.sum()
+
+            df_combined.index.name = "Period"
 
             #  Shade any year/period beyond maximum date in light gray
 
