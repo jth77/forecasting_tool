@@ -365,11 +365,11 @@ def main():
                 axis=1
             )
 
-            df_gapfilled = df_combined["Actual_2025"].fillna(df_combined["Forecast_2025"])
-            df_combined["Actual_2025"] = df_gapfilled
+            df_gapfilled = df_combined["Actual_2026"].fillna(df_combined["Forecast_2026"])
+            df_combined["Actual_2026"] = df_gapfilled
 
-            df_combined.drop(columns=["Forecast_2025"], inplace=True)
-            df_combined.drop(index=["Totals"], inplace=True)
+            df_combined.drop(columns = ["Forecast_2026"], inplace=True)
+            df_combined.drop(index = ["Totals"], inplace=True)
 
             df_combined.loc["Totals"] = df_combined.sum()
 
