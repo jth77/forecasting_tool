@@ -89,7 +89,8 @@ def main():
     table_container = st.container()
     st.divider()
 
-    upload_res = st.file_uploader("Upload Fiscal CSV File")
+    st.write("https://analytics.uaccess.arizona.edu/analytics/saw.dll?Dashboard&PortalPath=%2Fshared%2FFinancial%2F_portal%2FGeneral%20-%20Financial%20Management&page=Transactions")
+    upload_res = st.file_uploader("Upload Transactions CSV File")
     if upload_res is not None:
         df = pd.read_csv(upload_res)
         df = load_data(df)
