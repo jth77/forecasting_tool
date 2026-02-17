@@ -60,11 +60,16 @@ def load_data(df):
 
 
 @st.cache_data
-def run_fit_predict(input_df):
+def run_fit_predict(input_df, forecast_periods):
     """Fit NeuralProphet and return forecast"""
     m = NeuralProphet()
     metrics = m.fit(input_df)
-    df_future = m.make_future_dataframe(input_df, n_historic_predictions=True, periods=62   )
+    df_future = m.make_future_dataframe(
+        input_df,
+        n_historic_predictions=True,
+        periods=forecast_periods
+    )
+
     forecast = m.predict(df_future)
     return [m, forecast]
 
@@ -190,13 +195,38 @@ def main():
         max_dt = filtered_df['ds'].max()
 
         # ----------------------------
+        # Dynamic Forecast Length
+        # ----------------------------
+
+        # Identify most recent fiscal year
+        max_fiscal_year = filtered_df['Fiscal_Year'].max()
+
+        # Identify max period within that fiscal year
+        max_period = (
+            filtered_df[filtered_df['Fiscal_Year'] == max_fiscal_year]
+            ['Period_Number']
+            .max()
+        )
+
+        # Months remaining in that fiscal year
+        PERIODS_PER_YEAR = 12
+        months_remaining_in_fy = PERIODS_PER_YEAR - max_period
+
+        # Additional forecast years
+        FORECAST_YEARS = 5
+        additional_months = FORECAST_YEARS * PERIODS_PER_YEAR
+
+        forecast_periods = months_remaining_in_fy + additional_months
+
+
+        # ----------------------------
         # Prepare Forecast Data
         # ----------------------------
         sum_actuals = filtered_df.groupby('ds', as_index=False).agg({"Current_Month_Actuals": 'sum'})
         sum_actuals['y'] = sum_actuals['Current_Month_Actuals']
         sum_actuals = sum_actuals.drop(columns='Current_Month_Actuals')
 
-        res = run_fit_predict(sum_actuals)
+        res = run_fit_predict(sum_actuals, forecast_periods)
         predict_df = res[1]
         m = res[0]
         predict_df['yhat1'] = predict_df["yhat1"] * (1 + (forecast_change/100))
