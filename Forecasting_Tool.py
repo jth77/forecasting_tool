@@ -171,20 +171,41 @@ def main():
             columns='Fiscal_Year',
             values='Current_Month_Actuals'
         )
+        CMA_pivot.columns = [str(int(c)) for c in CMA_pivot.columns]
 
         CMA_pivot.loc["Totals"] = CMA_pivot.sum()
         CMA_pivot_styled = CMA_pivot.style.format(lambda x: f"{x:,.0f}")
 
         # Build valid YYYY-MM-DD strings
+        # Ensure no NaN values remain after conversion
+        filtered_df = filtered_df.dropna(subset=['Period_Number', 'Fiscal_Year'])
+
+        # Convert to regular int (not nullable Int64)
+        filtered_df['Period_Number'] = filtered_df['Period_Number'].astype(int)
+        filtered_df['Fiscal_Year'] = filtered_df['Fiscal_Year'].astype(int)
+
+        # Map fiscal period to calendar month (Period 1 = July, Period 12 = June)
+        fiscal_to_calendar_month = {
+            1: 7, 2: 8, 3: 9, 4: 10, 5: 11, 6: 12,
+            7: 1, 8: 2, 9: 3, 10: 4, 11: 5, 12: 6
+        }
+
+        # Periods 7-12 (Jan-Jun) are in the same calendar year as the fiscal year
+        # Periods 1-6 (Jul-Dec) are in the previous calendar year
+        filtered_df['calendar_month'] = filtered_df['Period_Number'].map(fiscal_to_calendar_month)
+        filtered_df['calendar_year'] = filtered_df['Fiscal_Year']
+        filtered_df.loc[filtered_df['Period_Number'] <= 6, 'calendar_year'] = filtered_df['Fiscal_Year'] - 1
+
+        # Build date string
         filtered_df['date_string'] = (
-            filtered_df['Fiscal_Year'].astype(str)
-            + '-' +
-            filtered_df['Period_Number'].astype(str).str.zfill(2)
-            + '-01'
+                filtered_df['calendar_year'].astype(str)
+                + '-'
+                + filtered_df['calendar_month'].astype(str).str.zfill(2)
+                + '-01'
         )
 
-        # Convert to datetime safely
-        filtered_df['ds'] = pd.to_datetime(filtered_df['date_string'], errors='coerce')
+        # Convert to datetime
+        filtered_df['ds'] = pd.to_datetime(filtered_df['date_string'], format='%Y-%m-%d', errors='coerce')
 
         # Drop invalid rows
         if filtered_df['ds'].isna().any():
@@ -287,6 +308,7 @@ def main():
             columns='year',
             values='yhat1'
         )
+        predict_pivot.columns = [str(int(c)) for c in predict_pivot.columns]
 
         predict_pivot.loc["Totals"] = predict_pivot.sum()
         predict_pivot_styled = predict_pivot.style.format("{:,.0f}")
@@ -384,10 +406,29 @@ def main():
                 axis=1
             )
 
-            df_gapfilled = df_combined["Actual_2026"].fillna(df_combined["Forecast_2026"])
-            df_combined["Actual_2026"] = df_gapfilled
+            # Find the overlapping year (exists in both Actual_ and Forecast_ columns)
+            # Remove decimals from column names
+            df_combined.columns = [
+                col.split("_")[0] + "_" + str(int(float(col.split("_")[1])))
+                if "_" in col and col.split("_")[1].replace(".", "").isdigit()
+                else col
+                for col in df_combined.columns
+            ]
 
-            df_combined.drop(columns = ["Forecast_2026"], inplace=True)
+            # Find overlapping years
+            actual_years = [c.split("_")[1] for c in df_combined.columns if c.startswith("Actual_")]
+            forecast_years = [c.split("_")[1] for c in df_combined.columns if c.startswith("Forecast_")]
+            overlap_years = set(actual_years) & set(forecast_years)
+
+            # Merge overlapping columns
+            for year in overlap_years:
+                actual_col = f"Actual_{year}"
+                forecast_col = f"Forecast_{year}"
+                df_combined[actual_col] = df_combined[actual_col].fillna(df_combined[forecast_col])
+                df_combined.drop(columns=[forecast_col], inplace=True)
+
+            CMA_pivot_prefixed = CMA_pivot.add_prefix("Actual_")
+
             df_combined.drop(index = ["Totals"], inplace=True)
 
             df_combined.loc["Totals"] = df_combined.sum()
@@ -399,14 +440,19 @@ def main():
             def shade_forecast(column, max_dt):
                 color = []
                 year = column.name.split("_")[1]
+                year = str(int(float(year)))  # Fix: "2023.0" -> "2023"
                 for i, period_element in enumerate(column.index):
                     if period_element == "Totals":
                         color.append(color[-1])
                         continue
-                    ds = pd.to_datetime(str(year) + "-" + str(period_element) + "-01")
-                    if ds > max_dt:
-                        color.append("background-color: lightgray")
-                    else:
+                    try:
+                        period_str = str(int(float(period_element)))
+                        ds = pd.to_datetime(year + "-" + period_str + "-01")
+                        if ds > max_dt:
+                            color.append("background-color: lightgray")
+                        else:
+                            color.append("background-color: white")
+                    except (ValueError, TypeError):
                         color.append("background-color: white")
                 return color
 
