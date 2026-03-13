@@ -38,7 +38,7 @@ def handle_duplicate_columns(df):
     return df
 
 
-@st.cache_data
+@st.cache_resource
 def load_data(df):
     """Load and preprocess data with error handling"""
     try:
@@ -59,7 +59,7 @@ def load_data(df):
         st.stop()
 
 
-@st.cache_data
+@st.cache_resource
 def run_fit_predict(input_df, forecast_periods):
     """Fit NeuralProphet and return forecast"""
     m = NeuralProphet()
@@ -226,6 +226,24 @@ def main():
         sum_actuals = filtered_df.groupby('ds', as_index=False).agg({"Current_Month_Actuals": 'sum'})
         sum_actuals['y'] = sum_actuals['Current_Month_Actuals']
         sum_actuals = sum_actuals.drop(columns='Current_Month_Actuals')
+
+        # Ensure only ds and y columns
+        sum_actuals = sum_actuals[['ds', 'y']].copy()
+
+        # Ensure correct types
+        sum_actuals['ds'] = pd.to_datetime(sum_actuals['ds'])
+        sum_actuals['y'] = pd.to_numeric(sum_actuals['y'], errors='coerce')
+
+        # Drop any NaN rows
+        sum_actuals = sum_actuals.dropna(subset=['ds', 'y'])
+
+        # Sort by date
+        sum_actuals = sum_actuals.sort_values('ds').reset_index(drop=True)
+
+        # Check minimum rows
+        if len(sum_actuals) < 10:
+            st.error(f"Not enough data points for forecasting ({len(sum_actuals)} rows). Need at least 10.")
+            st.stop()
 
         res = run_fit_predict(sum_actuals, forecast_periods)
         predict_df = res[1]
