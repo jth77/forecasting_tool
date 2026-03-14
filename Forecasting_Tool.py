@@ -238,7 +238,7 @@ def main():
         FORECAST_YEARS = 5
         additional_months = FORECAST_YEARS * PERIODS_PER_YEAR
 
-        forecast_periods = months_remaining_in_fy + additional_months
+        forecast_periods = months_remaining_in_fy + additional_months + 6
 
 
         # ----------------------------
