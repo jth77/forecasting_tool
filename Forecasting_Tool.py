@@ -62,8 +62,13 @@ def load_data(df):
 @st.cache_resource
 def run_fit_predict(input_df, forecast_periods):
     """Fit NeuralProphet and return forecast"""
-    m = NeuralProphet()
-    metrics = m.fit(input_df)
+    m = NeuralProphet(
+        growth="linear",
+        n_changepoints=0,
+        trend_reg=0,
+        yearly_seasonality=True,
+    )
+    metrics = m.fit(input_df, freq="MS")
     df_future = m.make_future_dataframe(
         input_df,
         n_historic_predictions=True,
@@ -438,21 +443,30 @@ def main():
             #  Shade any year/period beyond maximum date in light gray
 
             def shade_forecast(column, max_dt):
+                fiscal_to_calendar_month = {
+                    1: 7, 2: 8, 3: 9, 4: 10, 5: 11, 6: 12,
+                    7: 1, 8: 2, 9: 3, 10: 4, 11: 5, 12: 6
+                }
                 color = []
-                year = column.name.split("_")[1]
-                year = str(int(float(year)))  # Fix: "2023.0" -> "2023"
+                fiscal_year = int(float(column.name.split("_")[1]))
                 for i, period_element in enumerate(column.index):
                     if period_element == "Totals":
                         color.append(color[-1])
                         continue
                     try:
-                        period_str = str(int(float(period_element)))
-                        ds = pd.to_datetime(year + "-" + period_str + "-01")
+                        period_int = int(float(period_element))
+                        calendar_month = fiscal_to_calendar_month[period_int]
+                        # Periods 1-6 (Jul-Dec) are in previous calendar year
+                        if period_int <= 6:
+                            calendar_year = fiscal_year - 1
+                        else:
+                            calendar_year = fiscal_year
+                        ds = pd.to_datetime(f"{calendar_year}-{calendar_month:02d}-01")
                         if ds > max_dt:
                             color.append("background-color: lightgray")
                         else:
                             color.append("background-color: white")
-                    except (ValueError, TypeError):
+                    except (ValueError, TypeError, KeyError):
                         color.append("background-color: white")
                 return color
 
